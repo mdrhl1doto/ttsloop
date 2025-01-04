@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Previous head content remains the same -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Speech</title>
+    <style>
+        /* Previous styles remain the same */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .settings {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        select {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        .status {
+            margin-top: 10px;
+            color: #666;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+        .speed-value {
+            min-width: 45px;
+        }
+        .loop-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        /* New credits style */
+        .credits {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Text to Speech</h1>
+        <div class="settings">
+            <div class="settings-row">
+                <div>
+                    <label for="voice-select">Voice: </label>
+                    <select id="voice-select"></select>
+                </div>
+                <div class="speed-control">
+                    <label for="speed-slider">Speed:</label>
+                    <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1">
+                    <span class="speed-value" id="speed-value">1.0x</span>
+                </div>
+            </div>
+        </div>
+        <textarea id="text-input" placeholder="Enter text to be read...">Welcome to the text to speech website. Type your text here and click play to hear it.</textarea>
+        <div class="controls">
+            <button id="play-button">Play</button>
+            <button id="pause-button" disabled>Pause</button>
+            <button id="stop-button" disabled>Stop</button>
+            <div class="loop-control">
+                <input type="checkbox" id="loop-checkbox" style="margin: 0;">
+                <label for="loop-checkbox">Loop Playback</label>
+            </div>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="credits">Developed by MDRHL1.0</div>
+    </div>
+
+    <script>
+        // Previous JavaScript code remains exactly the same
+        let speechSynthesis = window.speechSynthesis;
+        let utterance = null;
+        let voices = [];
+        let isPlaying = false;
+
+        // Elements
+        const textInput = document.getElementById('text-input');
+        const playButton = document.getElementById('play-button');
+        const pauseButton = document.getElementById('pause-button');
+        const stopButton = document.getElementById('stop-button');
+        const voiceSelect = document.getElementById('voice-select');
+        const loopCheckbox = document.getElementById('loop-checkbox');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValue = document.getElementById('speed-value');
+        const statusDiv = document.getElementById('status');
+
+        // Load voices
+        function loadVoices() {
+            voices = speechSynthesis.getVoices();
+            voiceSelect.innerHTML = '';
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        // Load voices when they're ready
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        loadVoices();
+
+        // Update speed display
+        speedSlider.addEventListener('input', () => {
+            const speed = parseFloat(speedSlider.value).toFixed(1);
+            speedValue.textContent = `${speed}x`;
+            if (isPlaying) {
+                // Restart speech with new speed if currently playing
+                const currentText = utterance.text;
+                speechSynthesis.cancel();
+                speak(currentText);
+            }
+        });
+
+        function updateButtons(playing) {
+            isPlaying = playing;
+            playButton.disabled = playing;
+            pauseButton.disabled = !playing;
+            stopButton.disabled = !playing;
+        }
+
+        function speak(text) {
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            // Create new utterance
+            utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = voices[voiceSelect.value];
+            utterance.rate = parseFloat(speedSlider.value);
+            
+            utterance.onend = () => {
+                if (loopCheckbox.checked && isPlaying) {
+                    // Small delay before restarting to prevent cutting off
+                    setTimeout(() => {
+                        speak(text);
+                    }, 100);
+                } else {
+                    updateButtons(false);
+                    statusDiv.textContent = 'Playback finished';
+                }
+            };
+
+            utterance.onerror = (event) => {
+                // Only show error if it's not from stopping
+                if (isPlaying) {
+                    console.error('Speech synthesis error:', event);
+                    statusDiv.textContent = 'Error occurred during playback';
+                    updateButtons(false);
+                }
+            };
+
+            // Small delay before starting to prevent cutting off beginning
+            setTimeout(() => {
+                try {
+                    speechSynthesis.speak(utterance);
+                    updateButtons(true);
+                    statusDiv.textContent = 'Playing...';
+                } catch (error) {
+                    statusDiv.textContent = 'Error starting playback';
+                    updateButtons(false);
+                }
+            }, 50);
+        }
+
+        // Event listeners
+        playButton.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            if (text) {
+                speak(text);
+            } else {
+                statusDiv.textContent = 'Please enter some text to speak';
+            }
+        });
+
+        pauseButton.addEventListener('click', () => {
+            speechSynthesis.pause();
+            updateButtons(false);
+            statusDiv.textContent = 'Paused';
+        });
+
+        stopButton.addEventListener('click', () => {
+            isPlaying = false;  // Set this first to prevent error handling
+            speechSynthesis.cancel();
+            updateButtons(false);
+            statusDiv.textContent = 'Stopped';
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            speechSynthesis.cancel();
+        });
+    </script>
+</body>
+</html>
